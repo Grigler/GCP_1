@@ -19,8 +19,8 @@ enum WindingOrder
 class Ray
 {
 public:
-  static bool TestRay(glm::vec3 _dir, glm::vec3 _origin,
-    glm::vec3 _tri[3], WindingOrder _wo = CW);
+  static bool RayTri(glm::vec3 _dir, glm::vec3 _origin,
+    glm::vec3 _tri[3], WindingOrder _wo = CCW);
 
 };
 

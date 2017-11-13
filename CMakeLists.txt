@@ -6,6 +6,9 @@ include_directories(
 )
 
 add_executable(Brute_Force
+  src/Brute_Force/tiny_obj_loader.cc
+  src/Brute_Force/lodepng.cpp
+
   src/Brute_Force/main.cpp
 
   src/Brute_Force/Ray.cpp
