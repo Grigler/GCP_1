@@ -5,7 +5,7 @@
 
 #include "Ray.h"
 
-#define UNIFORM_VAL 32
+#define UNIFORM_VAL 128
 #define MAX_X UNIFORM_VAL
 #define MAX_Y UNIFORM_VAL
 #define MAX_Z UNIFORM_VAL
@@ -26,7 +26,7 @@ int main(int argc, char **argv)
   std::vector<tinyobj::shape_t> shapes;
   std::vector<tinyobj::material_t> materials;
   std::string err;
-  bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &err, "C:\\Users\\i7465070\\GCP_1\\models\\sandal.obj", NULL, true);
+  bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &err, "C:\\Users\\i7465070.STUDENT\\GCP_1\\models\\tri.obj", NULL, true);
   if (!err.empty())
   {
     std::cerr << err << std::endl;
@@ -59,13 +59,13 @@ int main(int argc, char **argv)
           for (size_t v = 0; v < fv; v++)
           {
             tinyobj::index_t i = shapes.at(s).mesh.indices.at(indexOffset + v);
-            tri.v[v].x = attrib.vertices.at(3 * i.vertex_index + 0);// +(MAX_X / 2.0f);
-            tri.v[v].y = attrib.vertices.at(3 * i.vertex_index + 1);// +(MAX_Y / 2.0f);
-            tri.v[v].z = attrib.vertices.at(3 * i.vertex_index + 2);// +(MAX_Z / 2.0f);
+            tri.v[v].x = 10.0f * attrib.vertices.at(3 * i.vertex_index + 0) + (MAX_X / 2.0f);
+            tri.v[v].y = 10.0f * attrib.vertices.at(3 * i.vertex_index + 1) + (MAX_Y / 2.0f);
+            tri.v[v].z = 10.0f * attrib.vertices.at(3 * i.vertex_index + 2) + (MAX_Z / 2.0f);
           }
           indexOffset += fv;
 
-          bool isHit = Ray::RayTri(CONST_DIR, rayPos, tri.v);
+          bool isHit = Ray::FailSafeTest(CONST_DIR, rayPos, tri.v);
           if (isHit)
           {
             std::cout << "\tHIT" << std::endl;

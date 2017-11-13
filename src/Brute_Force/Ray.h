@@ -22,6 +22,8 @@ public:
   static bool RayTri(glm::vec3 _dir, glm::vec3 _origin,
     glm::vec3 _tri[3], WindingOrder _wo = CCW);
 
+  static bool FailSafeTest(glm::vec3 _dir, glm::vec3 _origin,
+    glm::vec3 _tri[3], glm::vec3 *_hitPoint = NULL);
 };
 
 #endif
