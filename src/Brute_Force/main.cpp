@@ -176,14 +176,7 @@ void BruteForceTrace(std::vector<unsigned char> &_imageVec, Obj *_obj)
           bool isHit = Ray::RayTri(CONST_DIR, glm::vec3(x, y, 0), tri.v, tri.n, hitPoint);
           if (isHit)
           {
-            float facingRatio = glm::min(-glm::dot(CONST_DIR, tri.n), 1.0f) * 0.5f;
-            /*
-            _imageVec[x *(MAX_X * 4) + 4 * y + 0] = facingRatio * 255.0f;//glm::abs(tri.n.x) * 255.0f;
-            _imageVec[x *(MAX_X * 4) + 4 * y + 1] = facingRatio * 255.0f;//glm::abs(tri.n.y) * 255.0f;
-            _imageVec[x *(MAX_X * 4) + 4 * y + 2] = facingRatio * 255.0f;//glm::abs(tri.n.z) * 255.0f;
-            */
-            //hitPoint = glm::normalize(hitPoint);
-
+            float facingRatio = glm::max(glm::min(-glm::dot(CONST_DIR, tri.n), 1.0f), 0.4f) * 0.5f;
 
             _imageVec[x *(MAX_X * 4) + 4 * y + 0] = facingRatio * 128;
             _imageVec[x *(MAX_X * 4) + 4 * y + 1] = facingRatio * 255;
