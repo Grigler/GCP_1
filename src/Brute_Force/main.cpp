@@ -38,6 +38,9 @@ struct Obj
   std::vector<tinyobj::shape_t> shapes;
   std::vector<tinyobj::material_t> materials;
 
+  glm::vec3 min;
+  glm::vec3 max;
+
   Obj(std::string _path)
   {
     std::string err;
@@ -53,6 +56,33 @@ struct Obj
     {
       std::cerr << "! Failed: Path likely doesn't exist" << std::endl;
       getchar();
+    }
+
+    //Arbritrary values drastically outside the Viewing Volume
+    min = glm::vec3(256);
+    max = glm::vec3(-256);
+  }
+
+  void BuildBV()
+  {
+    for (size_t s = 0; s < shapes.size(); s++)
+    {
+      size_t indexOffset = 0;
+      //Each face in this object
+      for (int f = 0; f < shapes.at(s).mesh.num_face_vertices.size(); f++)
+      {
+        int fv = shapes.at(s).mesh.num_face_vertices.at(f);
+        for (size_t v = 0; v < fv; v++)
+        {
+          tinyobj::index_t i = shapes.at(s).mesh.indices.at(indexOffset + v);
+          glm::vec3 vert;
+          vert.x = MODEL_SCALE * attrib.vertices.at(3 * i.vertex_index + 0) + (MAX_X / 2.0f);
+          vert.y = MODEL_SCALE * attrib.vertices.at(3 * i.vertex_index + 1) + (MAX_Y / 2.0f);
+          vert.z = MODEL_SCALE * attrib.vertices.at(3 * i.vertex_index + 2) + (MAX_Z / 2.0f);
+          min = glm::min(min, vert);
+          max = glm::max(max, vert);
+        }
+      }
     }
   }
 };
@@ -91,7 +121,7 @@ int main(int argc, char **argv)
   std::stringstream dataCSV;
 
   dataCSV << "Iteration,run-time(ms)" << std::endl;
-  for (size_t i = 0; i < 4; i++)
+  for (size_t i = 0; i < 1; i++)
   {
     printf("#%i\n", i);
     //Time Start
@@ -113,14 +143,17 @@ int main(int argc, char **argv)
   DumpData(dataCSV, "Brute_Force_Times.csv");
   dataCSV.str("");
 
+  //Done as a pre-comuputation
+  object.BuildBV();
 
   dataCSV << "Iteration,run-time(ms)" << std::endl;
-  for (size_t i = 0; i < 5000; i++)
+  for (size_t i = 0; i < 2; i++)
   {
     printf("#%i\n", i);
     //Time Start
     auto before = clock.now();
     BVTrace(image, &object);
+    ExportImage(image, "Post Function.png");
     //Time End
     auto after = clock.now();
 
@@ -267,5 +300,55 @@ void BruteForceTrace(std::vector<unsigned char> &_imageVec, Obj *_obj)
 }
 void BVTrace(std::vector<unsigned char> &_imageVec, Obj *_obj)
 {
-  //Create Bounding Volume From _obj then trace
+  ExportImage(_imageVec, "Func Entry.png");
+  //Each object in obj file
+  for (size_t s = 0; s < _obj->shapes.size(); s++)
+  {
+    size_t indexOffset = 0;
+    //Each face in this object
+    for (int f = 0; f < _obj->shapes.at(s).mesh.num_face_vertices.size(); f++)
+    {
+      int fv = _obj->shapes.at(s).mesh.num_face_vertices.at(f);
+
+      Tri tri;
+      for (size_t v = 0; v < fv; v++)
+      {
+        tinyobj::index_t i = _obj->shapes.at(s).mesh.indices.at(indexOffset + v);
+        tri.v[v].x = MODEL_SCALE * _obj->attrib.vertices.at(3 * i.vertex_index + 0) + (MAX_X / 2.0f);
+        tri.v[v].y = MODEL_SCALE * _obj->attrib.vertices.at(3 * i.vertex_index + 1) + (MAX_Y / 2.0f);
+        tri.v[v].z = MODEL_SCALE * _obj->attrib.vertices.at(3 * i.vertex_index + 2) + (MAX_Z / 2.0f);
+        //Calculating normal once per-triangle
+        //rather than once per-ray
+        tri.CalculateNorm();
+      }
+      indexOffset += fv;
+
+      for (int x = 0; x < MAX_X; x++)
+      {
+        for (int y = 0; y < MAX_Y; y++)
+        {
+          if (!(x > _obj->min.x && x < _obj->max.x && y > _obj->min.y && y < _obj->max.y)) continue;
+
+          glm::vec3 hitPoint;
+          bool isHit = Ray::RayTri(CONST_DIR, glm::vec3(x, y, 0), tri.v, tri.n, hitPoint);
+          if (isHit)
+          {
+            float facingRatio = glm::max(glm::min(-glm::dot(CONST_DIR, tri.n), 1.0f), 0.4f) * 0.5f;
+
+            _imageVec[x *(MAX_X * 4) + 4 * y + 0] = facingRatio * 128;
+            _imageVec[x *(MAX_X * 4) + 4 * y + 1] = facingRatio * 255;
+            _imageVec[x *(MAX_X * 4) + 4 * y + 2] = facingRatio * 128;
+            _imageVec[x *(MAX_X * 4) + 4 * y + 3] = 255;
+            std::stringstream ss;
+            printf("IMAGE\n");
+            ss << "Func_" << x << "_" << rand()%1000 << "_" << "_" << y << ".png";
+            ExportImage(_imageVec, ss.str().c_str());
+            //break;
+          }
+        }
+      }
+    }
+  }
+
+  ExportImage(_imageVec, "End of Func.png");
 }
