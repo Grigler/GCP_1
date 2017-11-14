@@ -1,5 +1,7 @@
 #include <iostream>
 #include <chrono>
+#include <sstream>
+#include <fstream>
 
 #include <glm/glm.hpp>
 //For lerp function
@@ -11,13 +13,11 @@
 #include "Ray.h"
 
 //TODO - Take these define values as command line arguments
-#define UNIFORM_VAL 512
+#define UNIFORM_VAL 256
 #define MAX_X UNIFORM_VAL
 #define MAX_Y UNIFORM_VAL
 #define MAX_Z UNIFORM_VAL
-#define MODEL_SCALE 150.0f
-
-//#define DEBUG_OUTPUT
+#define MODEL_SCALE 75.0f
 
 //Simple struct to holds the 3 vertex points
 //and the normal of the triangle
@@ -38,10 +38,10 @@ struct Obj
   std::vector<tinyobj::shape_t> shapes;
   std::vector<tinyobj::material_t> materials;
 
-  Obj(const char *_path)
+  Obj(std::string _path)
   {
     std::string err;
-    bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &err, _path, NULL, true);
+    bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &err, _path.c_str(), NULL, true);
 
     if (!err.empty())
     {
@@ -57,78 +57,150 @@ struct Obj
   }
 };
 
+void ParseArgs(int argc, char **argv);
+void DumpData(std::stringstream &_ss, std::string _path);
+
 void ExportImage(std::vector<unsigned char> &_raw, std::string _name);
 void ScrubRawImage(std::vector<unsigned char> &_raw);
 //Takes vector representation of a raw image (assumes correct size)
 //and populates with
 void BruteForceTrace(std::vector<unsigned char> &_imageVec, Obj *_obj);
+void BVTrace(std::vector<unsigned char> &_imageVec, Obj *_obj);
+
+bool g_visualDrawing = false;
+std::string g_inputFilePath = "C:\\Users\\i7465070\\GCP_1\\models\\gourd.obj";
 
 int main(int argc, char **argv)
 {
   //Parse argv to filename here or launch demo mode
+  if (argc > 1)
+  {
+    ParseArgs(argc, argv);
+  }
 
   //Load objects here
-  Obj object("C:\\Users\\i7465070\\GCP_1\\models\\gourd.obj");
+  Obj object(g_inputFilePath);
 
   std::vector<unsigned char> image;
   image.resize(MAX_X * MAX_Y * 4);
-  for (auto i = image.begin(); i < image.end(); i++) (*i) = 128;
+  ScrubRawImage(image);
 
-/*
-  for (int x = 0; x < MAX_X; x++)
+  std::chrono::high_resolution_clock clock;
+  std::stringstream ss;
+
+  std::stringstream dataCSV;
+
+  dataCSV << "Iteration,run-time(ms)" << std::endl;
+  for (size_t i = 0; i < 4; i++)
   {
-    for (int y = 0; y < MAX_Y; y++)
+    printf("#%i\n", i);
+    //Time Start
+    auto before = clock.now();
+    BruteForceTrace(image, &object);
+    //Time End
+    auto after = clock.now();
+
+    dataCSV << i << ',' << std::chrono::duration_cast<std::chrono::milliseconds>(after - before).count() << std::endl;
+
+    if (g_visualDrawing)
     {
-#ifdef DEBUG_OUTPUT
-      std::cout << x << " " << y << std::endl;
-#endif
-      glm::vec3 rayPos = glm::vec3(x, y, 0);
-      for (size_t s = 0; s < shapes.size(); s++)
+      ss.str("");
+      ss << "BF/" << i << ".png";
+      ExportImage(image, ss.str().c_str());
+      ScrubRawImage(image);
+    }
+  }
+  DumpData(dataCSV, "Brute_Force_Times.csv");
+  dataCSV.str("");
+
+
+  dataCSV << "Iteration,run-time(ms)" << std::endl;
+  for (size_t i = 0; i < 5000; i++)
+  {
+    printf("#%i\n", i);
+    //Time Start
+    auto before = clock.now();
+    BVTrace(image, &object);
+    //Time End
+    auto after = clock.now();
+
+    dataCSV << i << ',' << std::chrono::duration_cast<std::chrono::milliseconds>(after - before).count() << std::endl;
+
+    if (g_visualDrawing)
+    {
+      ss.str("");
+      ss << "BV/" << i << ".png";
+      ExportImage(image, ss.str().c_str());
+      ScrubRawImage(image);
+    }
+  }
+  DumpData(dataCSV, "Bounding_Volume_Times.csv");
+
+  return 0;
+}
+
+void ParseArgs(int argc, char **argv)
+{
+  //Command Line Switches
+  std::vector<std::string> validSwitches;
+  validSwitches.push_back("--visual");
+  validSwitches.push_back("--input");
+
+  bool validUse = false;
+
+  //Start at 1 to ignore location arg
+  for (size_t i = 1; i < argc; i++)
+  {
+    std::string arg = argv[i];
+    for (auto j = 0; j < validSwitches.size(); j++)
+    {
+      if (arg == validSwitches.at(j))
       {
-        //std::cout << "Shape " << s << ": " << shapes.at(s).name << std::endl;
-        size_t indexOffset = 0;
-        for (size_t f = 0; f < shapes.at(s).mesh.num_face_vertices.size(); f++)
+        if (validSwitches.at(j) == "--visual")
         {
-          int fv = shapes.at(s).mesh.num_face_vertices.at(f);
+          //Making folders as lodePNG cannot create them
+          system("mkdir BF");
+          system("mkdir BV");
 
-          Tri tri;
-          for (size_t v = 0; v < fv; v++)
+          g_visualDrawing = true;
+          validUse = true;
+          break;
+        }
+
+        if (validSwitches.at(j) == "--input")
+        {
+          if (argc > i)
           {
-            tinyobj::index_t i = shapes.at(s).mesh.indices.at(indexOffset + v);
-            tri.v[v].x = MODEL_SCALE * attrib.vertices.at(3 * i.vertex_index + 0) + (MAX_X / 2.0f);
-            tri.v[v].y = MODEL_SCALE * attrib.vertices.at(3 * i.vertex_index + 1) + (MAX_Y / 2.0f);
-            tri.v[v].z = MODEL_SCALE * attrib.vertices.at(3 * i.vertex_index + 2) + (MAX_Z / 2.0f);
-          }
-          indexOffset += fv;
-
-          //bool isHit = Ray::FailSafeTest(CONST_DIR, rayPos, tri.v);
-          bool isHit = Ray::RayTri(CONST_DIR, rayPos, tri.v, CCW);
-          if (isHit)
-          {
-#ifdef DEBUG_OUTPUT
-            std::cout << "\tHIT" << std::endl;
-#endif
-            image[x *(MAX_X * 4) + 4 * y + 0] = (tri.v[0].x + tri.v[1].x + tri.v[2].x) / 3.0f;
-            image[x *(MAX_X * 4) + 4 * y + 1] = (tri.v[0].y + tri.v[1].y + tri.v[2].y) / 3.0f;
-            image[x *(MAX_X * 4) + 4 * y + 2] = (tri.v[0].z + tri.v[1].z + tri.v[2].z) / 3.0f;
-            image[x *(MAX_X * 4) + 4 * y + 3] = 255;
-
+            g_inputFilePath = argv[i + 1];
+            validUse = true;
             break;
           }
           else
           {
-            //std::cout << std::endl;
+            validUse = false;
           }
         }
       }
     }
+
+    if (!validUse)
+    {
+      std::cerr << "Usage:\n\tRayTrace [switches]\n\tValidSwitches:\n\t\t--visual - Outputs pngs of traces\n\t\t--input [path] uses input obj file to trace\n";
+    }
   }
-  */
-
-  BruteForceTrace(image, &object);
-  ExportImage(image, "BruteForce.png");
-
-  return 0;
+}
+void DumpData(std::stringstream &_ss, std::string _path)
+{
+  std::ofstream file(_path);
+  if (file.is_open())
+  {
+    file << _ss.str().c_str();
+    file.close();
+  }
+  else
+  {
+    std::cerr << "! Error: Couldn't Open File: " << _path << std::endl;
+  }
 }
 
 void ExportImage(std::vector<unsigned char> &_raw, std::string _name)
@@ -141,6 +213,10 @@ void ExportImage(std::vector<unsigned char> &_raw, std::string _name)
     getchar();
   }
   lodepng::save_file(out, _name);
+}
+void ScrubRawImage(std::vector<unsigned char> &_raw)
+{
+  for (auto p = _raw.begin(); p < _raw.end(); p++) (*p) = 128;
 }
 
 void BruteForceTrace(std::vector<unsigned char> &_imageVec, Obj *_obj)
@@ -169,7 +245,7 @@ void BruteForceTrace(std::vector<unsigned char> &_imageVec, Obj *_obj)
 
       for (int x = 0; x < MAX_X; x++)
       {
-#pragma omp parallel for
+//#pragma omp parallel for
         for (int y = 0; y < MAX_Y; y++)
         {
           glm::vec3 hitPoint;
@@ -189,7 +265,6 @@ void BruteForceTrace(std::vector<unsigned char> &_imageVec, Obj *_obj)
     }
   }
 }
-
 void BVTrace(std::vector<unsigned char> &_imageVec, Obj *_obj)
 {
   //Create Bounding Volume From _obj then trace
