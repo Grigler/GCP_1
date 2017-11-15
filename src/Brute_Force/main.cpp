@@ -3,9 +3,13 @@
 #include <sstream>
 #include <fstream>
 
+
 #include <glm/glm.hpp>
 //For lerp function
 #include <glm/gtx/compatibility.hpp>
+
+
+#include "Hoops.h"
 
 #include "tiny_obj_loader.h"
 #include "lodepng.h"
@@ -23,12 +27,13 @@
 //and the normal of the triangle
 struct Tri
 {
-  glm::vec3 v[3] = { glm::vec3(0) };
-  glm::vec3 n = glm::vec3(0);
+  Hoops::Vec3 v[3] = { Hoops::Vec3(0) };
+  Hoops::Vec3 n = Hoops::Vec3(0);
   //Assumes correct Vertex values
   void CalculateNorm()
   {
-    n = glm::normalize(glm::cross(v[1] - v[0], v[2] - v[0]));
+    n = Hoops::Normalize(Hoops::Cross(v[1] - v[0], v[2] - v[0]));
+    //n = Hoops::Normalize(Hoops::Cross(v[1] - v[0], v[2] - v[0]));
   }
 };
 //Abstraction of the tiny_obj_loader API
@@ -38,8 +43,8 @@ struct Obj
   std::vector<tinyobj::shape_t> shapes;
   std::vector<tinyobj::material_t> materials;
 
-  glm::vec3 min;
-  glm::vec3 max;
+  Hoops::Vec3 min;
+  Hoops::Vec3 max;
 
   Obj(std::string _path)
   {
@@ -59,8 +64,8 @@ struct Obj
     }
 
     //Arbritrary values drastically outside the Viewing Volume
-    min = glm::vec3(256);
-    max = glm::vec3(-256);
+    min = Hoops::Vec3(256);
+    max = Hoops::Vec3(-256);
   }
 
   void BuildBV()
@@ -75,15 +80,27 @@ struct Obj
         for (size_t v = 0; v < fv; v++)
         {
           tinyobj::index_t i = shapes.at(s).mesh.indices.at(indexOffset + v);
-          glm::vec3 vert;
-          vert.x = MODEL_SCALE * attrib.vertices.at(3 * i.vertex_index + 0) + (MAX_X / 2.0f);
-          vert.y = MODEL_SCALE * attrib.vertices.at(3 * i.vertex_index + 1) + (MAX_Y / 2.0f);
-          vert.z = MODEL_SCALE * attrib.vertices.at(3 * i.vertex_index + 2) + (MAX_Z / 2.0f);
-          min = glm::min(min, vert);
-          max = glm::max(max, vert);
+          Hoops::Vec3 vert;
+          //Finding the min and max values in un-scaled local-space
+          vert.x = attrib.vertices.at(3 * i.vertex_index + 0);
+          vert.y = attrib.vertices.at(3 * i.vertex_index + 1);
+          vert.z = attrib.vertices.at(3 * i.vertex_index + 2);
+          
+          //min = Hoops::min(min, vert);
+          //max = Hoops::max(max, vert);
+          min.x = Hoops::min(min.x, vert.x);
+          min.y = Hoops::min(min.y, vert.y);
+          min.z = Hoops::min(min.z, vert.z);
+
+          max.x = Hoops::max(max.x, vert.x);
+          max.y = Hoops::max(max.y, vert.y);
+          max.z = Hoops::max(max.z, vert.z);
         }
       }
     }
+    //Scaling+offsetting the mins and maxs TODO - do per xyz component
+    min = min * MODEL_SCALE + (UNIFORM_VAL / 2.0f);
+    max = max * MODEL_SCALE + (UNIFORM_VAL / 2.0f);
   }
 };
 
@@ -270,10 +287,10 @@ void BruteForceTrace(std::vector<unsigned char> &_imageVec, Obj *_obj)
         tri.v[v].x = MODEL_SCALE * _obj->attrib.vertices.at(3 * i.vertex_index + 0) + (MAX_X / 2.0f);
         tri.v[v].y = MODEL_SCALE * _obj->attrib.vertices.at(3 * i.vertex_index + 1) + (MAX_Y / 2.0f);
         tri.v[v].z = MODEL_SCALE * _obj->attrib.vertices.at(3 * i.vertex_index + 2) + (MAX_Z / 2.0f);
-        //Calculating normal once per-triangle
-        //rather than once per-ray
-        tri.CalculateNorm();
       }
+      //Calculating normal once per-triangle
+      //rather than once per-ray
+      tri.CalculateNorm();
       indexOffset += fv;
 
       for (int x = 0; x < MAX_X; x++)
@@ -281,11 +298,11 @@ void BruteForceTrace(std::vector<unsigned char> &_imageVec, Obj *_obj)
 //#pragma omp parallel for
         for (int y = 0; y < MAX_Y; y++)
         {
-          glm::vec3 hitPoint;
-          bool isHit = Ray::RayTri(CONST_DIR, glm::vec3(x, y, 0), tri.v, tri.n, hitPoint);
+          Hoops::Vec3 hitPoint;
+          bool isHit = Ray::RayTri(CONST_DIR, Hoops::Vec3(x, y, 0), tri.v, tri.n, hitPoint);
           if (isHit)
           {
-            float facingRatio = glm::max(glm::min(-glm::dot(CONST_DIR, tri.n), 1.0f), 0.4f) * 0.5f;
+            float facingRatio = Hoops::max(Hoops::min(-Hoops::dot(CONST_DIR, tri.n), 1.0f), 0.4f) * 0.5f;
 
             _imageVec[x *(MAX_X * 4) + 4 * y + 0] = facingRatio * 128;
             _imageVec[x *(MAX_X * 4) + 4 * y + 1] = facingRatio * 255;
@@ -317,31 +334,37 @@ void BVTrace(std::vector<unsigned char> &_imageVec, Obj *_obj)
         tri.v[v].x = MODEL_SCALE * _obj->attrib.vertices.at(3 * i.vertex_index + 0) + (MAX_X / 2.0f);
         tri.v[v].y = MODEL_SCALE * _obj->attrib.vertices.at(3 * i.vertex_index + 1) + (MAX_Y / 2.0f);
         tri.v[v].z = MODEL_SCALE * _obj->attrib.vertices.at(3 * i.vertex_index + 2) + (MAX_Z / 2.0f);
-        //Calculating normal once per-triangle
-        //rather than once per-ray
-        tri.CalculateNorm();
       }
+      //Calculating normal once per-triangle
+      //rather than once per-ray
+      tri.CalculateNorm();
       indexOffset += fv;
 
       for (int x = 0; x < MAX_X; x++)
       {
         for (int y = 0; y < MAX_Y; y++)
         {
-          if (!(x > _obj->min.x && x < _obj->max.x && y > _obj->min.y && y < _obj->max.y)) continue;
+          if (!((x >= _obj->min.x && x <= _obj->max.x)
+            &&  (y >= _obj->min.y && y <= _obj->max.y)))
+          {
+            //printf("Fail: pos(%i, %i) - min(%f, %f) max(%f, %f)\n"
+            //  , x, y, _obj->min.x, _obj->min.y, _obj->max.x, _obj->max.y);
+            continue;
+          }
 
-          glm::vec3 hitPoint;
-          bool isHit = Ray::RayTri(CONST_DIR, glm::vec3(x, y, 0), tri.v, tri.n, hitPoint);
+          Hoops::Vec3 hitPoint;
+          bool isHit = Ray::RayTri(CONST_DIR, Hoops::Vec3(x, y, 0), tri.v, tri.n, hitPoint);
           if (isHit)
           {
-            float facingRatio = glm::max(glm::min(-glm::dot(CONST_DIR, tri.n), 1.0f), 0.4f) * 0.5f;
+            float facingRatio = Hoops::max(Hoops::min(-Hoops::dot(CONST_DIR, tri.n), 1.0f), 0.4f) * 0.5f;
 
             _imageVec[x *(MAX_X * 4) + 4 * y + 0] = facingRatio * 128;
             _imageVec[x *(MAX_X * 4) + 4 * y + 1] = facingRatio * 255;
             _imageVec[x *(MAX_X * 4) + 4 * y + 2] = facingRatio * 128;
             _imageVec[x *(MAX_X * 4) + 4 * y + 3] = 255;
+
             std::stringstream ss;
-            printf("IMAGE\n");
-            ss << "Func_" << x << "_" << rand()%1000 << "_" << "_" << y << ".png";
+            ss << "PerPixelDump/" << x << "_" << "_" << y << ".png";
             ExportImage(_imageVec, ss.str().c_str());
             //break;
           }
