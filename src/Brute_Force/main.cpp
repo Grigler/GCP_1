@@ -17,11 +17,11 @@
 #include "Ray.h"
 
 //TODO - Take these define values as command line arguments
-#define UNIFORM_VAL 256
+#define UNIFORM_VAL 2048
 #define MAX_X UNIFORM_VAL
 #define MAX_Y UNIFORM_VAL
 #define MAX_Z UNIFORM_VAL
-#define MODEL_SCALE 75.0f
+#define MODEL_SCALE 300.0f
 
 //Simple struct to holds the 3 vertex points
 //and the normal of the triangle
@@ -29,11 +29,28 @@ struct Tri
 {
   Hoops::Vec3 v[3] = { Hoops::Vec3(0) };
   Hoops::Vec3 n = Hoops::Vec3(0);
+  Hoops::Vec3 min;
+  Hoops::Vec3 max;
   //Assumes correct Vertex values
   void CalculateNorm()
   {
     n = Hoops::Normalize(Hoops::Cross(v[1] - v[0], v[2] - v[0]));
-    //n = Hoops::Normalize(Hoops::Cross(v[1] - v[0], v[2] - v[0]));
+  }
+  void CalculateBV()
+  {
+    for (size_t i = 0; i < 3; i++)
+    {
+      //Min values
+      min.x = Hoops::min(min.x, v[i].x);
+      min.y = Hoops::min(min.y, v[i].y);
+      min.z = Hoops::min(min.z, v[i].z);
+      //Max values
+      max.x = Hoops::max(max.x, v[i].x);
+      max.y = Hoops::max(max.y, v[i].y);
+      max.z = Hoops::max(max.z, v[i].z);
+    }
+
+    
   }
 };
 //Abstraction of the tiny_obj_loader API
@@ -81,21 +98,20 @@ struct Obj
         {
           tinyobj::index_t i = shapes.at(s).mesh.indices.at(indexOffset + v);
           Hoops::Vec3 vert;
-          //Finding the min and max values in un-scaled local-space
           vert.x = attrib.vertices.at(3 * i.vertex_index + 0);
           vert.y = attrib.vertices.at(3 * i.vertex_index + 1);
           vert.z = attrib.vertices.at(3 * i.vertex_index + 2);
-          
-          //min = Hoops::min(min, vert);
-          //max = Hoops::max(max, vert);
+
+          //Min values
           min.x = Hoops::min(min.x, vert.x);
           min.y = Hoops::min(min.y, vert.y);
           min.z = Hoops::min(min.z, vert.z);
-
+          //Max values
           max.x = Hoops::max(max.x, vert.x);
           max.y = Hoops::max(max.y, vert.y);
           max.z = Hoops::max(max.z, vert.z);
         }
+        indexOffset += fv;
       }
     }
     //Scaling+offsetting the mins and maxs TODO - do per xyz component
@@ -137,10 +153,15 @@ int main(int argc, char **argv)
 
   std::stringstream dataCSV;
 
+  /********************************************
+  *               Brute Force                 *
+  *********************************************/
+
+  printf("BF:\n");
   dataCSV << "Iteration,run-time(ms)" << std::endl;
-  for (size_t i = 0; i < 1; i++)
+  for (size_t i = 0; i < 0; i++)
   {
-    printf("#%i\n", i);
+    printf("\t#%i\n", i);
     //Time Start
     auto before = clock.now();
     BruteForceTrace(image, &object);
@@ -160,17 +181,22 @@ int main(int argc, char **argv)
   DumpData(dataCSV, "Brute_Force_Times.csv");
   dataCSV.str("");
 
+
+  /********************************************
+  *              Bounding Volume              *
+  *********************************************/
+
   //Done as a pre-comuputation
   object.BuildBV();
 
+  printf("BV:\n");
   dataCSV << "Iteration,run-time(ms)" << std::endl;
-  for (size_t i = 0; i < 2; i++)
+  for (size_t i = 0; i < 50; i++)
   {
-    printf("#%i\n", i);
+    printf("\t#%i\n", i);
     //Time Start
     auto before = clock.now();
     BVTrace(image, &object);
-    ExportImage(image, "Post Function.png");
     //Time End
     auto after = clock.now();
 
@@ -185,6 +211,34 @@ int main(int argc, char **argv)
     }
   }
   DumpData(dataCSV, "Bounding_Volume_Times.csv");
+  dataCSV.str("");
+
+  /********************************************
+  *               Triangle BV                 *
+  *********************************************/
+
+  printf("TriBV:\n");
+  dataCSV << "Iteration,run-time(ms)" << std::endl;
+  for (size_t i = 0; i < 50; i++)
+  {
+    printf("\t#%i\n", i);
+    //Time Start
+    auto before = clock.now();
+    BVTrace(image, &object);
+    //Time End
+    auto after = clock.now();
+
+    dataCSV << i << ',' << std::chrono::duration_cast<std::chrono::milliseconds>(after - before).count() << std::endl;
+
+    if (g_visualDrawing)
+    {
+      ss.str("");
+      ss << "TriBV/" << i << ".png";
+      ExportImage(image, ss.str().c_str());
+      ScrubRawImage(image);
+    }
+  }
+  DumpData(dataCSV, "Tri_BV.csv");
 
   return 0;
 }
@@ -211,6 +265,7 @@ void ParseArgs(int argc, char **argv)
           //Making folders as lodePNG cannot create them
           system("mkdir BF");
           system("mkdir BV");
+          system("mkdir TriBV");
 
           g_visualDrawing = true;
           validUse = true;
@@ -299,15 +354,16 @@ void BruteForceTrace(std::vector<unsigned char> &_imageVec, Obj *_obj)
         for (int y = 0; y < MAX_Y; y++)
         {
           Hoops::Vec3 hitPoint;
-          bool isHit = Ray::RayTri(CONST_DIR, Hoops::Vec3(x, y, 0), tri.v, tri.n, hitPoint);
-          if (isHit)
+          //Using x&y pixels for Rays (0,x,y) origin as-per the criteria
+          bool isHit = Ray::RayTri(CONST_DIR, Hoops::Vec3(0, y, x), tri.v, tri.n, hitPoint);
+          if (isHit && hitPoint.x < 256 && hitPoint.y < 256 && hitPoint.z < 256)
           {
-            float facingRatio = Hoops::max(Hoops::min(-Hoops::dot(CONST_DIR, tri.n), 1.0f), 0.4f) * 0.5f;
+            float facingRatio = Hoops::clamp(-Hoops::Dot(CONST_DIR, tri.n), 0.4f, 1.0f) * 0.5f;
 
-            _imageVec[x *(MAX_X * 4) + 4 * y + 0] = facingRatio * 128;
-            _imageVec[x *(MAX_X * 4) + 4 * y + 1] = facingRatio * 255;
-            _imageVec[x *(MAX_X * 4) + 4 * y + 2] = facingRatio * 128;
-            _imageVec[x *(MAX_X * 4) + 4 * y + 3] = 255;
+            _imageVec[(256 - y) *(MAX_Y * 4) + 4 * x + 0] = facingRatio * 128;
+            _imageVec[(256 - y) *(MAX_Y * 4) + 4 * x + 1] = facingRatio * 255;
+            _imageVec[(256 - y) *(MAX_Y * 4) + 4 * x + 2] = facingRatio * 128;
+            _imageVec[(256 - y) *(MAX_Y * 4) + 4 * x + 3] = 255;
             //break;
           }
         }
@@ -317,7 +373,6 @@ void BruteForceTrace(std::vector<unsigned char> &_imageVec, Obj *_obj)
 }
 void BVTrace(std::vector<unsigned char> &_imageVec, Obj *_obj)
 {
-  ExportImage(_imageVec, "Func Entry.png");
   //Each object in obj file
   for (size_t s = 0; s < _obj->shapes.size(); s++)
   {
@@ -342,36 +397,80 @@ void BVTrace(std::vector<unsigned char> &_imageVec, Obj *_obj)
 
       for (int x = 0; x < MAX_X; x++)
       {
+
+        if (x <= _obj->min.z || x >= _obj->max.z)  
+          continue;
+#pragma omp parallel for
         for (int y = 0; y < MAX_Y; y++)
         {
-          if (!((x >= _obj->min.x && x <= _obj->max.x)
-            &&  (y >= _obj->min.y && y <= _obj->max.y)))
-          {
-            //printf("Fail: pos(%i, %i) - min(%f, %f) max(%f, %f)\n"
-            //  , x, y, _obj->min.x, _obj->min.y, _obj->max.x, _obj->max.y);
+          if (y <= _obj->min.y || y >= _obj->max.y)  
             continue;
-          }
 
           Hoops::Vec3 hitPoint;
-          bool isHit = Ray::RayTri(CONST_DIR, Hoops::Vec3(x, y, 0), tri.v, tri.n, hitPoint);
-          if (isHit)
+          bool isHit = Ray::RayTri(CONST_DIR, Hoops::Vec3(0, y, x), tri.v, tri.n, hitPoint);
+          if (isHit && hitPoint.x < MAX_X && hitPoint.y < MAX_Y && hitPoint.z < MAX_Z)
           {
-            float facingRatio = Hoops::max(Hoops::min(-Hoops::dot(CONST_DIR, tri.n), 1.0f), 0.4f) * 0.5f;
+            float facingRatio = Hoops::clamp(-Hoops::Dot(CONST_DIR, tri.n), 0.4f, 1.0f) * 0.5f;
 
-            _imageVec[x *(MAX_X * 4) + 4 * y + 0] = facingRatio * 128;
-            _imageVec[x *(MAX_X * 4) + 4 * y + 1] = facingRatio * 255;
-            _imageVec[x *(MAX_X * 4) + 4 * y + 2] = facingRatio * 128;
-            _imageVec[x *(MAX_X * 4) + 4 * y + 3] = 255;
-
-            std::stringstream ss;
-            ss << "PerPixelDump/" << x << "_" << "_" << y << ".png";
-            ExportImage(_imageVec, ss.str().c_str());
-            //break;
+            _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 0] = facingRatio * 128;
+            _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 1] = facingRatio * 255;
+            _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 2] = facingRatio * 128;
+            _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 3] = 255;
           }
         }
       }
     }
   }
+}
+void TriBVTrace(std::vector<unsigned char> &_imageVec, Obj *_obj)
+{
+  //Each object in obj file
+  for (size_t s = 0; s < _obj->shapes.size(); s++)
+  {
+    size_t indexOffset = 0;
+    //Each face in this object
+    for (int f = 0; f < _obj->shapes.at(s).mesh.num_face_vertices.size(); f++)
+    {
+      int fv = _obj->shapes.at(s).mesh.num_face_vertices.at(f);
 
-  ExportImage(_imageVec, "End of Func.png");
+      Tri tri;
+      for (size_t v = 0; v < fv; v++)
+      {
+        tinyobj::index_t i = _obj->shapes.at(s).mesh.indices.at(indexOffset + v);
+        tri.v[v].x = MODEL_SCALE * _obj->attrib.vertices.at(3 * i.vertex_index + 0) + (MAX_X / 2.0f);
+        tri.v[v].y = MODEL_SCALE * _obj->attrib.vertices.at(3 * i.vertex_index + 1) + (MAX_Y / 2.0f);
+        tri.v[v].z = MODEL_SCALE * _obj->attrib.vertices.at(3 * i.vertex_index + 2) + (MAX_Z / 2.0f);
+      }
+      //Calculating normal once per-triangle
+      //rather than once per-ray
+      tri.CalculateNorm();
+      tri.CalculateBV();
+      indexOffset += fv;
+
+      for (int x = 0; x < MAX_X; x++)
+      {
+
+        if (x <= tri.min.z || x >= tri.max.z)
+          continue;
+#pragma omp parallel for
+        for (int y = 0; y < MAX_Y; y++)
+        {
+          if (y <= tri.min.y || y >= tri.max.y)
+            continue;
+
+          Hoops::Vec3 hitPoint;
+          bool isHit = Ray::RayTri(CONST_DIR, Hoops::Vec3(0, y, x), tri.v, tri.n, hitPoint);
+          if (isHit && hitPoint.x < MAX_X && hitPoint.y < MAX_Y && hitPoint.z < MAX_Z)
+          {
+            float facingRatio = Hoops::clamp(-Hoops::Dot(CONST_DIR, tri.n), 0.4f, 1.0f) * 0.5f;
+
+            _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 0] = facingRatio * 128;
+            _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 1] = facingRatio * 255;
+            _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 2] = facingRatio * 128;
+            _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 3] = 255;
+          }
+        }
+      }
+    }
+  }
 }

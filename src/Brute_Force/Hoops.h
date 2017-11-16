@@ -1,14 +1,18 @@
 #ifndef __HOOPS__
 #define __HOOPS__
 
+#include <math.h>
+#include <limits>
+
 namespace Hoops
 {
+  static float epsilon = std::numeric_limits<float>::epsilon();
+
   struct Vec3
   {
     float x;
     float y;
     float z;
-
 
 #pragma region "Constructors"
     Vec3()
@@ -54,16 +58,16 @@ namespace Hoops
     Vec3 Normalize()
     {
       //As Dot(_v,_v) gives (||_v||)^2
-      *this = std::sqrtf(Dot(*this));
+      *this = sqrtf(Dot(*this));
     }
     Vec3 Normalized()
     {
       //As Dot(_v,_v) gives (||_v||)^2
-      return std::sqrtf(Dot(*this));
+      return sqrtf(Dot(*this));
     }
 
 #pragma region "Operator Overloads"
-    friend Vec3& operator*(Vec3 _l, const float& _op)
+    friend Vec3 operator*(Vec3 _l, const float& _op)
     {
       _l.x *= _op;
       _l.y *= _op;
@@ -77,9 +81,9 @@ namespace Hoops
       z *= _op;
       return *this;
     }
-    Vec3& operator/(const float& _op)
+    friend Vec3 operator/(Vec3 _l, const float& _op)
     {
-      Vec3 r;
+      Vec3 r = _l;
       r.x /= _op;
       r.y /= _op;
       r.z /= _op;
@@ -139,7 +143,7 @@ namespace Hoops
   inline Vec3 Normalize(Vec3 &_v)
   {
     //As Dot(_v,_v) gives (||_v||)^2
-    return std::sqrtf(Dot(_v, _v));
+    return _v / sqrtf(Dot(_v, _v));
   }
 
   inline float min(float &_l, float &_r)
@@ -153,6 +157,13 @@ namespace Hoops
     float r;
     _l > _r ? r = _l : r =_r;
     return r;
+  }
+  inline float clamp(float _val, float _min, float _max)
+  {
+    float rtn;
+    _val < _min ? rtn = _min : rtn = _val;
+    _val > _max ? rtn = _max : rtn = _val;
+    return rtn;
   }
 }
 
