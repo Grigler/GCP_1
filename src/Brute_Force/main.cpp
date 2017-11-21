@@ -17,11 +17,11 @@
 #include "Ray.h"
 
 //TODO - Take these define values as command line arguments
-#define UNIFORM_VAL 2048
+#define UNIFORM_VAL 256
 #define MAX_X UNIFORM_VAL
 #define MAX_Y UNIFORM_VAL
 #define MAX_Z UNIFORM_VAL
-#define MODEL_SCALE 300.0f
+#define MODEL_SCALE 45.0f
 
 //Simple struct to holds the 3 vertex points
 //and the normal of the triangle
@@ -67,7 +67,6 @@ struct Obj
   {
     std::string err;
     bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &err, _path.c_str(), NULL, true);
-
     if (!err.empty())
     {
       std::cerr << err << std::endl;
@@ -131,7 +130,7 @@ void BruteForceTrace(std::vector<unsigned char> &_imageVec, Obj *_obj);
 void BVTrace(std::vector<unsigned char> &_imageVec, Obj *_obj);
 
 bool g_visualDrawing = false;
-std::string g_inputFilePath = "C:\\Users\\i7465070\\GCP_1\\models\\gourd.obj";
+std::string g_inputFilePath = "C:\\Users\\i7465070\\GCP_1\\models\\typhoon.obj";
 
 int main(int argc, char **argv)
 {
@@ -148,7 +147,7 @@ int main(int argc, char **argv)
   image.resize(MAX_X * MAX_Y * 4);
   ScrubRawImage(image);
 
-  std::chrono::high_resolution_clock clock;
+  std::chrono::steady_clock clock;
   std::stringstream ss;
 
   std::stringstream dataCSV;
@@ -159,7 +158,7 @@ int main(int argc, char **argv)
 
   printf("BF:\n");
   dataCSV << "Iteration,run-time(ms)" << std::endl;
-  for (size_t i = 0; i < 0; i++)
+  for (size_t i = 0; i < 256; i++)
   {
     printf("\t#%i\n", i);
     //Time Start
@@ -191,7 +190,7 @@ int main(int argc, char **argv)
 
   printf("BV:\n");
   dataCSV << "Iteration,run-time(ms)" << std::endl;
-  for (size_t i = 0; i < 50; i++)
+  for (size_t i = 0; i < 256; i++)
   {
     printf("\t#%i\n", i);
     //Time Start
@@ -219,7 +218,7 @@ int main(int argc, char **argv)
 
   printf("TriBV:\n");
   dataCSV << "Iteration,run-time(ms)" << std::endl;
-  for (size_t i = 0; i < 50; i++)
+  for (size_t i = 0; i < 256; i++)
   {
     printf("\t#%i\n", i);
     //Time Start
@@ -358,13 +357,22 @@ void BruteForceTrace(std::vector<unsigned char> &_imageVec, Obj *_obj)
           bool isHit = Ray::RayTri(CONST_DIR, Hoops::Vec3(0, y, x), tri.v, tri.n, hitPoint);
           if (isHit && hitPoint.x < 256 && hitPoint.y < 256 && hitPoint.z < 256)
           {
-            float facingRatio = Hoops::clamp(-Hoops::Dot(CONST_DIR, tri.n), 0.4f, 1.0f) * 0.5f;
+            if (g_visualDrawing)
+            {
+              float facingRatio = Hoops::clamp(-Hoops::Dot(CONST_DIR, tri.n), 0.4f, 1.0f) * 0.5f;
 
-            _imageVec[(256 - y) *(MAX_Y * 4) + 4 * x + 0] = facingRatio * 128;
-            _imageVec[(256 - y) *(MAX_Y * 4) + 4 * x + 1] = facingRatio * 255;
-            _imageVec[(256 - y) *(MAX_Y * 4) + 4 * x + 2] = facingRatio * 128;
-            _imageVec[(256 - y) *(MAX_Y * 4) + 4 * x + 3] = 255;
-            //break;
+              _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 0] = facingRatio * 128;
+              _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 1] = facingRatio * 255;
+              _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 2] = facingRatio * 128;
+              _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 3] = 255;
+            }
+            else
+            {
+              _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 0] = 255;
+              _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 1] = 255;
+              _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 2] = 255;
+              _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 3] = 255;
+            }
           }
         }
       }
@@ -400,7 +408,7 @@ void BVTrace(std::vector<unsigned char> &_imageVec, Obj *_obj)
 
         if (x <= _obj->min.z || x >= _obj->max.z)  
           continue;
-#pragma omp parallel for
+//#pragma omp parallel for
         for (int y = 0; y < MAX_Y; y++)
         {
           if (y <= _obj->min.y || y >= _obj->max.y)  
@@ -410,12 +418,22 @@ void BVTrace(std::vector<unsigned char> &_imageVec, Obj *_obj)
           bool isHit = Ray::RayTri(CONST_DIR, Hoops::Vec3(0, y, x), tri.v, tri.n, hitPoint);
           if (isHit && hitPoint.x < MAX_X && hitPoint.y < MAX_Y && hitPoint.z < MAX_Z)
           {
-            float facingRatio = Hoops::clamp(-Hoops::Dot(CONST_DIR, tri.n), 0.4f, 1.0f) * 0.5f;
+            if (g_visualDrawing)
+            {
+              float facingRatio = Hoops::clamp(-Hoops::Dot(CONST_DIR, tri.n), 0.4f, 1.0f) * 0.5f;
 
-            _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 0] = facingRatio * 128;
-            _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 1] = facingRatio * 255;
-            _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 2] = facingRatio * 128;
-            _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 3] = 255;
+              _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 0] = facingRatio * 128;
+              _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 1] = facingRatio * 255;
+              _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 2] = facingRatio * 128;
+              _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 3] = 255;
+            }
+            else
+            {
+              _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 0] = 255;
+              _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 1] = 255;
+              _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 2] = 255;
+              _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 3] = 255;
+            }            
           }
         }
       }
@@ -452,7 +470,7 @@ void TriBVTrace(std::vector<unsigned char> &_imageVec, Obj *_obj)
 
         if (x <= tri.min.z || x >= tri.max.z)
           continue;
-#pragma omp parallel for
+//#pragma omp parallel for
         for (int y = 0; y < MAX_Y; y++)
         {
           if (y <= tri.min.y || y >= tri.max.y)
@@ -462,12 +480,22 @@ void TriBVTrace(std::vector<unsigned char> &_imageVec, Obj *_obj)
           bool isHit = Ray::RayTri(CONST_DIR, Hoops::Vec3(0, y, x), tri.v, tri.n, hitPoint);
           if (isHit && hitPoint.x < MAX_X && hitPoint.y < MAX_Y && hitPoint.z < MAX_Z)
           {
-            float facingRatio = Hoops::clamp(-Hoops::Dot(CONST_DIR, tri.n), 0.4f, 1.0f) * 0.5f;
+            if (g_visualDrawing)
+            {
+              float facingRatio = Hoops::clamp(-Hoops::Dot(CONST_DIR, tri.n), 0.4f, 1.0f) * 0.5f;
 
-            _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 0] = facingRatio * 128;
-            _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 1] = facingRatio * 255;
-            _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 2] = facingRatio * 128;
-            _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 3] = 255;
+              _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 0] = facingRatio * 128;
+              _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 1] = facingRatio * 255;
+              _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 2] = facingRatio * 128;
+              _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 3] = 255;
+            }
+            else
+            {
+              _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 0] = 255;
+              _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 1] = 255;
+              _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 2] = 255;
+              _imageVec[(MAX_Y - y) *(MAX_Y * 4) + 4 * x + 3] = 255;
+            }
           }
         }
       }
