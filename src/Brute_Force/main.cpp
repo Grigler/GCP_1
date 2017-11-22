@@ -21,7 +21,7 @@
 #define MAX_X UNIFORM_VAL
 #define MAX_Y UNIFORM_VAL
 #define MAX_Z UNIFORM_VAL
-#define MODEL_SCALE 25.0f
+#define MODEL_SCALE 0.065f
 
 //Simple struct to holds the 3 vertex points
 //and the normal of the triangle
@@ -130,7 +130,7 @@ void BruteForceTrace(std::vector<unsigned char> &_imageVec, Obj *_obj);
 void BVTrace(std::vector<unsigned char> &_imageVec, Obj *_obj);
 
 bool g_visualDrawing = false;
-std::string g_inputFilePath = "C:\\Users\\i7465070\\GCP_1\\models\\gourd.obj";
+std::string g_inputFilePath = "C:\\Users\\i7465070\\GCP_1\\models\\ManScanHigh.obj";
 
 int main(int argc, char **argv)
 {
@@ -158,7 +158,7 @@ int main(int argc, char **argv)
 
   printf("BF:\n");
   dataCSV << "Iteration,run-time(ms)" << std::endl;
-  for (size_t i = 0; i < 256; i++)
+  for (size_t i = 0; i < 0; i++)
   {
     printf("\t#%i\n", i);
     //Time Start
@@ -190,7 +190,7 @@ int main(int argc, char **argv)
 
   printf("BV:\n");
   dataCSV << "Iteration,run-time(ms)" << std::endl;
-  for (size_t i = 0; i < 256; i++)
+  for (size_t i = 0; i < 10; i++)
   {
     printf("\t#%i\n", i);
     //Time Start
@@ -218,7 +218,7 @@ int main(int argc, char **argv)
 
   printf("TriBV:\n");
   dataCSV << "Iteration,run-time(ms)" << std::endl;
-  for (size_t i = 0; i < 256; i++)
+  for (size_t i = 0; i < 10; i++)
   {
     printf("\t#%i\n", i);
     //Time Start
@@ -355,7 +355,8 @@ void BruteForceTrace(std::vector<unsigned char> &_imageVec, Obj *_obj)
           Hoops::Vec3 hitPoint;
           //Using x&y pixels for Rays (0,x,y) origin as-per the criteria
           bool isHit = Ray::RayTri(CONST_DIR, Hoops::Vec3(0, y, x), tri.v, tri.n, hitPoint);
-          if (isHit && hitPoint.x < 256 && hitPoint.y < 256 && hitPoint.z < 256)
+          if (isHit && hitPoint.x < MAX_X && hitPoint.y < MAX_Y && hitPoint.z < MAX_Z
+                    && hitPoint.x >= 0  && hitPoint.y >= 0  && hitPoint.z >= 0)
           {
             if (g_visualDrawing)
             {
@@ -416,7 +417,8 @@ void BVTrace(std::vector<unsigned char> &_imageVec, Obj *_obj)
 
           Hoops::Vec3 hitPoint;
           bool isHit = Ray::RayTri(CONST_DIR, Hoops::Vec3(0, y, x), tri.v, tri.n, hitPoint);
-          if (isHit && hitPoint.x < MAX_X && hitPoint.y < MAX_Y && hitPoint.z < MAX_Z)
+          if (isHit && hitPoint.x < MAX_X && hitPoint.y < MAX_Y && hitPoint.z < MAX_Z
+                    && hitPoint.x >= 0  && hitPoint.y >= 0  && hitPoint.z >= 0)
           {
             if (g_visualDrawing)
             {
@@ -478,7 +480,8 @@ void TriBVTrace(std::vector<unsigned char> &_imageVec, Obj *_obj)
 
           Hoops::Vec3 hitPoint;
           bool isHit = Ray::RayTri(CONST_DIR, Hoops::Vec3(0, y, x), tri.v, tri.n, hitPoint);
-          if (isHit && hitPoint.x < MAX_X && hitPoint.y < MAX_Y && hitPoint.z < MAX_Z)
+          if (isHit && hitPoint.x < MAX_X && hitPoint.y < MAX_Y && hitPoint.z < MAX_Z
+                    && hitPoint.x >= 0  && hitPoint.y >= 0  && hitPoint.z >= 0)
           {
             if (g_visualDrawing)
             {
