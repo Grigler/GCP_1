@@ -158,7 +158,7 @@ int main(int argc, char **argv)
 
   printf("BF:\n");
   dataCSV << "Iteration,run-time(ms)" << std::endl;
-  for (size_t i = 0; i < 1; i++)
+  for (size_t i = 0; i < 32; i++)
   {
     printf("\t#%i\n", i);
     //Time Start
@@ -190,7 +190,7 @@ int main(int argc, char **argv)
 
   printf("BV:\n");
   dataCSV << "Iteration,run-time(ms)" << std::endl;
-  for (size_t i = 0; i < 0; i++)
+  for (size_t i = 0; i < 32; i++)
   {
     printf("\t#%i\n", i);
     //Time Start
@@ -218,7 +218,7 @@ int main(int argc, char **argv)
 
   printf("TriBV:\n");
   dataCSV << "Iteration,run-time(ms)" << std::endl;
-  for (size_t i = 0; i < 0; i++)
+  for (size_t i = 0; i < 32; i++)
   {
     printf("\t#%i\n", i);
     //Time Start

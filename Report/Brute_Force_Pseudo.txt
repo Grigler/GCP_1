@@ -1,0 +1,20 @@
+for each triangle
+  n := CalculateNormal()
+  
+  for n from 0 to 255
+  
+    for m from 0 to 255
+    #Defining origin and direction of ray
+    p := (0,m,n)
+    d := (1,0,0)
+    
+    #Testing collision
+    if collision(p,d,triangle)
+      Draw(m,n)
+    end if
+	
+    end for
+	
+  end for
+  
+end for
