@@ -130,7 +130,7 @@ void BruteForceTrace(std::vector<unsigned char> &_imageVec, Obj *_obj);
 void BVTrace(std::vector<unsigned char> &_imageVec, Obj *_obj);
 
 bool g_visualDrawing = false;
-std::string g_inputFilePath = "C:\\Users\\i7465070\\GCP_1\\models\\ManScanLow.obj";
+std::string g_inputFilePath = "C:\\Users\\i7465070\\GCP_1\\models\\ManScanHigh.obj";
 
 int main(int argc, char **argv)
 {
@@ -158,7 +158,7 @@ int main(int argc, char **argv)
 
   printf("BF:\n");
   dataCSV << "Iteration,run-time(ms)" << std::endl;
-  for (size_t i = 0; i < 32; i++)
+  for (size_t i = 0; i < 1; i++)
   {
     printf("\t#%i\n", i);
     //Time Start
@@ -190,7 +190,7 @@ int main(int argc, char **argv)
 
   printf("BV:\n");
   dataCSV << "Iteration,run-time(ms)" << std::endl;
-  for (size_t i = 0; i < 32; i++)
+  for (size_t i = 0; i < 1; i++)
   {
     printf("\t#%i\n", i);
     //Time Start
@@ -218,7 +218,7 @@ int main(int argc, char **argv)
 
   printf("TriBV:\n");
   dataCSV << "Iteration,run-time(ms)" << std::endl;
-  for (size_t i = 0; i < 32; i++)
+  for (size_t i = 0; i < 1; i++)
   {
     printf("\t#%i\n", i);
     //Time Start
