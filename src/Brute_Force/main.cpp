@@ -21,7 +21,7 @@
 #define MAX_X UNIFORM_VAL
 #define MAX_Y UNIFORM_VAL
 #define MAX_Z UNIFORM_VAL
-#define MODEL_SCALE 0.065f
+#define MODEL_SCALE 25.0f
 
 //Simple struct to holds the 3 vertex points
 //and the normal of the triangle
@@ -130,7 +130,7 @@ void BruteForceTrace(std::vector<unsigned char> &_imageVec, Obj *_obj);
 void BVTrace(std::vector<unsigned char> &_imageVec, Obj *_obj);
 
 bool g_visualDrawing = false;
-std::string g_inputFilePath = "C:\\Users\\i7465070\\GCP_1\\models\\ManScanHigh.obj";
+std::string g_inputFilePath = "./models/typhoon.obj";
 
 int main(int argc, char **argv)
 {
@@ -190,7 +190,7 @@ int main(int argc, char **argv)
 
   printf("BV:\n");
   dataCSV << "Iteration,run-time(ms)" << std::endl;
-  for (size_t i = 0; i < 1; i++)
+  for (size_t i = 0; i < 0; i++)
   {
     printf("\t#%i\n", i);
     //Time Start
